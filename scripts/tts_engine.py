@@ -7,6 +7,7 @@ pass (e.g. Whisper) is needed to sync captions to the voice.
 """
 import asyncio
 import json
+import time
 from pathlib import Path
 
 import edge_tts
@@ -15,7 +16,7 @@ ROOT = Path(__file__).resolve().parent.parent
 CONFIG = json.loads((ROOT / "config" / "style.json").read_text())
 
 
-async def synthesize(text: str, out_audio: Path, out_timing: Path) -> list[dict]:
+async def _synthesize_once(text: str, out_audio: Path, out_timing: Path) -> list[dict]:
     voice_cfg = CONFIG["voice"]
     communicate = edge_tts.Communicate(
         text, voice_cfg["name"], rate=voice_cfg["rate"], pitch=voice_cfg["pitch"]
@@ -37,8 +38,26 @@ async def synthesize(text: str, out_audio: Path, out_timing: Path) -> list[dict]
                     }
                 )
 
-    out_timing.write_text(json.dumps(word_boundaries, indent=2))
+        out_timing.write_text(json.dumps(word_boundaries, indent=2))
     return word_boundaries
+
+
+async def synthesize(
+    text: str, out_audio: Path, out_timing: Path,
+    max_attempts: int = 4, base_delay: int = 20,
+) -> list[dict]:
+    for attempt in range(1, max_attempts + 1):
+        try:
+            return await _synthesize_once(text, out_audio, out_timing)
+        except Exception as e:
+            if attempt == max_attempts:
+                raise
+            delay = base_delay * (2 ** (attempt - 1))
+            print(f"edge-tts call failed ({type(e).__name__}: {e}). "
+                  f"Retrying in {delay}s (attempt {attempt}/{max_attempts})...")
+            if out_audio.exists():
+                out_audio.unlink()  # don't leave a half-written file behind
+            await asyncio.sleep(delay)
 
 
 def generate_voiceover(script: dict, project_dir: Path) -> tuple[Path, list[dict]]:
