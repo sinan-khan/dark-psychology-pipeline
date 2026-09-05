@@ -89,7 +89,7 @@ def generate_script(force_topic: str | None = None) -> dict:
     )
 
     prompt = f"{SYSTEM_PROMPT}\n\n{topic_instruction}"
-    response = CLIENT.models.generate_content(model=MODEL_NAME, contents=prompt)
+        response = _call_with_retry(prompt)
     raw = response.text.strip()
     if raw.startswith("```"):
         raw = raw.strip("`")
