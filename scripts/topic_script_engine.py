@@ -58,7 +58,22 @@ def _save_used_topic(topic: str) -> None:
     USED_TOPICS_FILE.parent.mkdir(parents=True, exist_ok=True)
     USED_TOPICS_FILE.write_text(json.dumps(used, indent=2))
 
-
+def _call_with_retry(prompt: str, max_attempts: int = 5, base_delay: int = 30):
+    """Retries on transient errors (503 overloaded, 429 rate-limited, 500/502/504).
+    Does NOT retry on real problems (bad API key, malformed request, etc.) --
+    those will keep failing no matter how many times we ask."""
+    retryable_codes = {429, 500, 502, 503, 504}
+    for attempt in range(1, max_attempts + 1):
+        try:
+            return CLIENT.models.generate_content(model=MODEL_NAME, contents=prompt)
+        except (genai_errors.ServerError, genai_errors.ClientError) as e:
+            code = getattr(e, "code", None)
+            if code not in retryable_codes or attempt == max_attempts:
+                raise
+            delay = base_delay * (2 ** (attempt - 1))
+            print(f"Gemini call failed ({code}): {e}. Retrying in {delay}s "
+                  f"(attempt {attempt}/{max_attempts})...")
+            time.sleep(delay)
 def generate_script(force_topic: str | None = None) -> dict:
     used = _load_used_topics()
     avoid_clause = (
