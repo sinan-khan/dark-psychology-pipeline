@@ -18,8 +18,9 @@ CONFIG = json.loads((ROOT / "config" / "style.json").read_text())
 
 async def _synthesize_once(text: str, out_audio: Path, out_timing: Path) -> list[dict]:
     voice_cfg = CONFIG["voice"]
-    communicate = edge_tts.Communicate(
-        text, voice_cfg["name"], rate=voice_cfg["rate"], pitch=voice_cfg["pitch"]
+        communicate = edge_tts.Communicate(
+        text, voice_cfg["name"], rate=voice_cfg["rate"], pitch=voice_cfg["pitch"],
+        boundary="WordBoundary",
     )
 
     word_boundaries = []
@@ -38,7 +39,14 @@ async def _synthesize_once(text: str, out_audio: Path, out_timing: Path) -> list
                     }
                 )
 
-        out_timing.write_text(json.dumps(word_boundaries, indent=2))
+            out_timing.write_text(json.dumps(word_boundaries, indent=2))
+    if text.strip() and not word_boundaries:
+        raise RuntimeError(
+            "edge-tts returned audio but zero word-timing events -- captions "
+            "would be unsynced. This usually means the installed edge-tts "
+            "version changed its metadata format again; check that "
+            "Communicate(..., boundary='WordBoundary') is still honored."
+        )
     return word_boundaries
 
 
