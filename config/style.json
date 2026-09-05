@@ -1,0 +1,27 @@
+{
+  "resolution": [1080, 1920],
+  "fps": 30,
+  "caption": {
+    "font": "DejaVu Sans Bold",
+    "font_size": 72,
+    "main_color": "&H00FFFFFF",
+    "highlight_color": "&H0000FFFF",
+    "outline_color": "&H00000000",
+    "outline_width": 4,
+    "position": "lower-middle",
+    "margin_v": 380
+  },
+  "voice": {
+    "name": "en-US-ChristopherNeural",
+    "rate": "+0%",
+    "pitch": "+0Hz"
+  },
+  "music": {
+    "duck_db": -18,
+    "voice_gain_db": 2
+  },
+  "video": {
+    "min_scene_seconds": 2.0,
+    "target_total_seconds": [35, 55]
+  }
+}
