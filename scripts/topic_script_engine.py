@@ -7,10 +7,11 @@ engine never has to guess which word turns yellow).
 """
 import json
 import os
-import random
+import time
 from pathlib import Path
 
 from google import genai
+from google.genai import errors as genai_errors
 
 ROOT = Path(__file__).resolve().parent.parent
 USED_TOPICS_FILE = ROOT / "config" / "used_topics.json"
