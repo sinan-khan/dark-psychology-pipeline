@@ -1,0 +1,45 @@
+name: Generate Dark Psychology Short
+
+on:
+  workflow_dispatch: {}
+  schedule:
+    - cron: "0 14 * * *"   # daily 14:00 UTC — adjust to your posting cadence
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install FFmpeg
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg fonts-dejavu-core
+
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run pipeline
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: python main.py "$(date -u +%Y%m%d_%H%M%S)"
+
+      - name: Upload final video as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: final-video
+          path: output/*.mp4
+          retention-days: 14
+
+      - name: Commit output back to repo
+        run: |
+          git config user.name "pipeline-bot"
+          git config user.email "actions@github.com"
+          git add output/*.mp4 config/used_topics.json
+          git commit -m "Auto-generated video $(date -u +%Y-%m-%d)" || echo "Nothing to commit"
+          git push
