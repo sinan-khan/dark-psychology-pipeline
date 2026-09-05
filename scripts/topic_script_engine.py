@@ -45,8 +45,17 @@ Return ONLY valid JSON, no markdown fences, matching this schema:
 
 Structure: scene 1 = hook, scenes 2-4 = body/explanation, one scene = a
 concrete example, last scene = a short closing line. 5-8 scenes total.
-Each scene's narration should take roughly 3-6 seconds to speak aloud.
+
+CRITICAL LENGTH REQUIREMENT: the "text" fields across ALL scenes combined
+must total between 100 and 130 words -- no fewer, no more. This is a hard
+constraint, not a suggestion: count your words before finishing. This maps
+to roughly 40-52 seconds of spoken narration at this voice's pace, which is
+the actual target video length. A script with fewer than 100 total words
+produces an unacceptably short video.
 """
+
+MIN_TOTAL_WORDS = 85
+MAX_TOTAL_WORDS = 145
 
 
 def _load_used_topics() -> list[str]:
@@ -89,7 +98,11 @@ def _call_with_retry(prompt: str, attempts_per_model: int = 3, base_delay: int =
     raise last_error
 
 
-def generate_script(force_topic: str | None = None) -> dict:
+def _total_words(script: dict) -> int:
+    return sum(len(scene["text"].split()) for scene in script["scenes"])
+
+
+def generate_script(force_topic: str | None = None, _regen_attempt: int = 0) -> dict:
     used = _load_used_topics()
     avoid_clause = (
         f"\nAvoid these already-covered topics: {', '.join(used[-40:])}."
@@ -111,6 +124,18 @@ def generate_script(force_topic: str | None = None) -> dict:
         raw = raw[raw.find("{"):]
 
     data = json.loads(raw)
+
+    word_count = _total_words(data)
+    if not (MIN_TOTAL_WORDS <= word_count <= MAX_TOTAL_WORDS):
+        max_regen_attempts = 2
+        if _regen_attempt < max_regen_attempts:
+            print(f"Script came back at {word_count} words (need "
+                  f"{MIN_TOTAL_WORDS}-{MAX_TOTAL_WORDS}). Regenerating "
+                  f"(attempt {_regen_attempt + 1}/{max_regen_attempts})...")
+            return generate_script(force_topic=force_topic, _regen_attempt=_regen_attempt + 1)
+        print(f"WARNING: proceeding with an out-of-range script ({word_count} "
+              f"words) after {max_regen_attempts} regeneration attempts.")
+
     _save_used_topic(data["topic"])
     return data
 
