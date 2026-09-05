@@ -12,8 +12,7 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-
+sys.path.insert(0, str(Path(__file__).resolve().parent / "scripts"))
 from topic_script_engine import generate_script
 from tts_engine import generate_voiceover
 from caption_engine import build_ass
