@@ -4,6 +4,12 @@ Uses edge-tts (free, no API key, Microsoft neural voices). Unlike most free
 TTS options, edge-tts streams WordBoundary events alongside the audio, so we
 get precise per-word start/end timing for free -- no separate forced-alignment
 pass (e.g. Whisper) is needed to sync captions to the voice.
+
+edge-tts is an unofficial client for a live Microsoft consumer feature, so it
+occasionally 403s when Microsoft's anti-bot token scheme shifts underneath it.
+_synthesize_with_retry rides out the intermittent cases; a persistent 403
+across all attempts means the library itself needs an update (check
+https://github.com/rany2/edge-tts/issues for a fix in progress).
 """
 import asyncio
 import json
@@ -18,7 +24,7 @@ CONFIG = json.loads((ROOT / "config" / "style.json").read_text())
 
 async def _synthesize_once(text: str, out_audio: Path, out_timing: Path) -> list[dict]:
     voice_cfg = CONFIG["voice"]
-        communicate = edge_tts.Communicate(
+    communicate = edge_tts.Communicate(
         text, voice_cfg["name"], rate=voice_cfg["rate"], pitch=voice_cfg["pitch"],
         boundary="WordBoundary",
     )
@@ -39,7 +45,7 @@ async def _synthesize_once(text: str, out_audio: Path, out_timing: Path) -> list
                     }
                 )
 
-            out_timing.write_text(json.dumps(word_boundaries, indent=2))
+    out_timing.write_text(json.dumps(word_boundaries, indent=2))
     if text.strip() and not word_boundaries:
         raise RuntimeError(
             "edge-tts returned audio but zero word-timing events -- captions "
