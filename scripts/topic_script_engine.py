@@ -17,10 +17,10 @@ ROOT = Path(__file__).resolve().parent.parent
 USED_TOPICS_FILE = ROOT / "config" / "used_topics.json"
 
 CLIENT = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
-# "gemini-flash-latest" is Google's auto-updating alias -- it always resolves
-# to their current Flash model, so this pipeline doesn't break every time
-# Google deprecates a specific version (which happens every few months).
-MODEL_NAME = "gemini-flash-latest"
+# Try the auto-updating Flash alias first, then fall back to other models if
+# it's saturated -- demand spikes are usually model-specific, not account-wide,
+# so trying a different model beats waiting longer on the same overloaded one.
+MODEL_FALLBACKS = ["gemini-flash-latest", "gemini-flash-lite-latest", "gemini-2.5-flash"]
 
 SYSTEM_PROMPT = """You write scripts for a dark-psychology / manipulation-tactics
 short-form video channel (35-55 second vertical videos). Tone: calm, direct,
@@ -62,22 +62,31 @@ def _save_used_topic(topic: str) -> None:
     USED_TOPICS_FILE.write_text(json.dumps(used, indent=2))
 
 
-def _call_with_retry(prompt: str, max_attempts: int = 5, base_delay: int = 30):
-    """Retries on transient errors (503 overloaded, 429 rate-limited, 500/502/504).
-    Does NOT retry on real problems (bad API key, malformed request, etc.) --
-    those will keep failing no matter how many times we ask."""
+def _call_with_retry(prompt: str, attempts_per_model: int = 3, base_delay: int = 30):
+    """Tries each model in MODEL_FALLBACKS in turn, retrying transient errors
+    (503 overloaded, 429 rate-limited, 500/502/504) a few times per model
+    before moving to the next one. Does NOT retry real problems (bad API key,
+    malformed request, etc.) -- those fail the same way on every model."""
     retryable_codes = {429, 500, 502, 503, 504}
-    for attempt in range(1, max_attempts + 1):
-        try:
-            return CLIENT.models.generate_content(model=MODEL_NAME, contents=prompt)
-        except (genai_errors.ServerError, genai_errors.ClientError) as e:
-            code = getattr(e, "code", None)
-            if code not in retryable_codes or attempt == max_attempts:
-                raise
-            delay = base_delay * (2 ** (attempt - 1))
-            print(f"Gemini call failed ({code}): {e}. Retrying in {delay}s "
-                  f"(attempt {attempt}/{max_attempts})...")
-            time.sleep(delay)
+    last_error = None
+    for model in MODEL_FALLBACKS:
+        for attempt in range(1, attempts_per_model + 1):
+            try:
+                return CLIENT.models.generate_content(model=model, contents=prompt)
+            except (genai_errors.ServerError, genai_errors.ClientError) as e:
+                code = getattr(e, "code", None)
+                last_error = e
+                if code not in retryable_codes:
+                    raise
+                if attempt == attempts_per_model:
+                    print(f"{model} still unavailable after {attempts_per_model} "
+                          f"attempts, trying next model...")
+                    break
+                delay = base_delay * (2 ** (attempt - 1))
+                print(f"Gemini call failed ({code}) on {model}: {e}. "
+                      f"Retrying in {delay}s (attempt {attempt}/{attempts_per_model})...")
+                time.sleep(delay)
+    raise last_error
 
 
 def generate_script(force_topic: str | None = None) -> dict:
