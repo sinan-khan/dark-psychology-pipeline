@@ -16,7 +16,7 @@ ROOT = Path(__file__).resolve().parent.parent
 USED_TOPICS_FILE = ROOT / "config" / "used_topics.json"
 
 CLIENT = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
-MODEL_NAME = "gemini-2.0-flash"
+MODEL_NAME = "gemini-flash-latest"
 
 SYSTEM_PROMPT = """You write scripts for a dark-psychology / manipulation-tactics
 short-form video channel (35-55 second vertical videos). Tone: calm, direct,
