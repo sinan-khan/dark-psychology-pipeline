@@ -17,6 +17,9 @@ ROOT = Path(__file__).resolve().parent.parent
 USED_TOPICS_FILE = ROOT / "config" / "used_topics.json"
 
 CLIENT = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
+# "gemini-flash-latest" is Google's auto-updating alias -- it always resolves
+# to their current Flash model, so this pipeline doesn't break every time
+# Google deprecates a specific version (which happens every few months).
 MODEL_NAME = "gemini-flash-latest"
 
 SYSTEM_PROMPT = """You write scripts for a dark-psychology / manipulation-tactics
@@ -58,6 +61,7 @@ def _save_used_topic(topic: str) -> None:
     USED_TOPICS_FILE.parent.mkdir(parents=True, exist_ok=True)
     USED_TOPICS_FILE.write_text(json.dumps(used, indent=2))
 
+
 def _call_with_retry(prompt: str, max_attempts: int = 5, base_delay: int = 30):
     """Retries on transient errors (503 overloaded, 429 rate-limited, 500/502/504).
     Does NOT retry on real problems (bad API key, malformed request, etc.) --
@@ -74,6 +78,8 @@ def _call_with_retry(prompt: str, max_attempts: int = 5, base_delay: int = 30):
             print(f"Gemini call failed ({code}): {e}. Retrying in {delay}s "
                   f"(attempt {attempt}/{max_attempts})...")
             time.sleep(delay)
+
+
 def generate_script(force_topic: str | None = None) -> dict:
     used = _load_used_topics()
     avoid_clause = (
@@ -89,7 +95,7 @@ def generate_script(force_topic: str | None = None) -> dict:
     )
 
     prompt = f"{SYSTEM_PROMPT}\n\n{topic_instruction}"
-        response = _call_with_retry(prompt)
+    response = _call_with_retry(prompt)
     raw = response.text.strip()
     if raw.startswith("```"):
         raw = raw.strip("`")
