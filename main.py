@@ -21,7 +21,7 @@ from scene_planner import plan_scenes
 from compose import compose
 from quality_check import check
 
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = Path(__file__).resolve().parent
 
 
 def run(project_name: str | None = None) -> Path:
