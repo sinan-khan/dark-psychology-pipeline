@@ -1,2 +1,5 @@
 google-genai==2.22.0
 edge-tts==7.2.8
+opencv-contrib-python-headless==4.13.0.92
+numpy==2.4.4
+Pillow==12.1.1

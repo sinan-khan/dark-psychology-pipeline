@@ -23,5 +23,16 @@
   "video": {
     "min_scene_seconds": 2.0,
     "target_total_seconds": [35, 55]
+  },
+  "paper_effect": {
+    "enabled": true,
+    "process_scale": 0.5,
+    "oil_size": 7,
+    "oil_dyn_ratio": 1,
+    "texture_opacity": 0.20,
+    "grain_strength": 10,
+    "vignette_strength": 0.35,
+    "saturation": 0.75,
+    "warmth": 10
   }
 }

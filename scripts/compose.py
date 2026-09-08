@@ -9,6 +9,8 @@ import random
 import subprocess
 from pathlib import Path
 
+from paper_effect import apply_paper_effect
+
 ROOT = Path(__file__).resolve().parent.parent
 CONFIG = json.loads((ROOT / "config" / "style.json").read_text())
 MUSIC_DIR = ROOT / "input" / "music"
@@ -67,10 +69,13 @@ def compose(project_dir: Path) -> Path:
         "-c", "copy", str(silent_video),
     ])
 
+    styled_video = project_dir / "styled_video.mp4"
+    apply_paper_effect(silent_video, styled_video)
+
     captioned_video = project_dir / "captioned_video.mp4"
     ass_path = project_dir / "captions.ass"
     _run([
-        "ffmpeg", "-y", "-i", str(silent_video),
+        "ffmpeg", "-y", "-i", str(styled_video),
         "-vf", f"ass={ass_path}",
         "-c:v", "libx264", "-preset", "medium", "-crf", "20",
         str(captioned_video),
