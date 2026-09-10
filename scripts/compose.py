@@ -15,6 +15,24 @@ ROOT = Path(__file__).resolve().parent.parent
 CONFIG = json.loads((ROOT / "config" / "style.json").read_text())
 MUSIC_DIR = ROOT / "input" / "music"
 
+# GitHub rejects any pushed file over 100MB without Git LFS. CRF-based encoding
+# lets bitrate float with content complexity -- fine for normal footage, but
+# the paper effect's grain is temporally incoherent (fresh noise every frame),
+# which is nearly incompressible and can blow CRF output past that limit. A
+# hard bitrate ceiling (VBV-capped, not CRF) makes the output size predictable
+# regardless of how noisy the content gets.
+GITHUB_PUSH_LIMIT_MB = 100
+SIZE_SAFETY_MARGIN_MB = 20  # stay well clear of the hard limit
+AUDIO_BITRATE_KBPS = 128
+
+
+def _max_video_bitrate_kbps() -> int:
+    # Budget against 1.3x the target max duration, in case a script overruns.
+    max_duration_s = CONFIG["video"]["target_total_seconds"][1] * 1.3
+    budget_kbits = (GITHUB_PUSH_LIMIT_MB - SIZE_SAFETY_MARGIN_MB) * 8 * 1024
+    video_kbps = (budget_kbits / max_duration_s) - AUDIO_BITRATE_KBPS
+    return max(1500, int(video_kbps))  # never drop below a watchable floor
+
 
 def _run(cmd: list[str]) -> None:
     subprocess.run(cmd, check=True, capture_output=True)
@@ -74,10 +92,13 @@ def compose(project_dir: Path) -> Path:
 
     captioned_video = project_dir / "captioned_video.mp4"
     ass_path = project_dir / "captions.ass"
+    video_kbps = _max_video_bitrate_kbps()
     _run([
         "ffmpeg", "-y", "-i", str(styled_video),
         "-vf", f"ass={ass_path}",
-        "-c:v", "libx264", "-preset", "medium", "-crf", "20",
+        "-c:v", "libx264", "-preset", "medium",
+        "-b:v", f"{video_kbps}k", "-maxrate", f"{video_kbps}k",
+        "-bufsize", f"{video_kbps * 2}k",
         str(captioned_video),
     ])
 
@@ -96,13 +117,14 @@ def compose(project_dir: Path) -> Path:
             f"[2:a]volume={duck_db}dB[music];"
             f"[voice][music]amix=inputs=2:duration=first:dropout_transition=2[aout]",
             "-map", "0:v", "-map", "[aout]",
-            "-c:v", "copy", "-c:a", "aac", "-shortest",
+            "-c:v", "copy", "-c:a", "aac", "-b:a", f"{AUDIO_BITRATE_KBPS}k", "-shortest",
             str(final_video),
         ])
     else:
         _run([
             "ffmpeg", "-y", "-i", str(captioned_video), "-i", str(voiceover),
-            "-map", "0:v", "-map", "1:a", "-c:v", "copy", "-c:a", "aac", "-shortest",
+            "-map", "0:v", "-map", "1:a", "-c:v", "copy",
+            "-c:a", "aac", "-b:a", f"{AUDIO_BITRATE_KBPS}k", "-shortest",
             str(final_video),
         ])
 

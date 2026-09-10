@@ -30,7 +30,7 @@
     "oil_size": 7,
     "oil_dyn_ratio": 1,
     "texture_opacity": 0.20,
-    "grain_strength": 10,
+    "grain_strength": 6,
     "vignette_strength": 0.35,
     "saturation": 0.75,
     "warmth": 10
