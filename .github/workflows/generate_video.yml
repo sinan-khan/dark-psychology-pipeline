@@ -29,7 +29,7 @@ jobs:
       - name: Run pipeline
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-        run: python main.py "$(date -u +%Y%m%d_%H%M%S)"
+        run: python main.py
 
       - name: Upload final video as artifact
         uses: actions/upload-artifact@v4
