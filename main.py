@@ -25,8 +25,16 @@ from quality_check import check
 ROOT = Path(__file__).resolve().parent
 
 
+def _next_output_number() -> int:
+    output_dir = ROOT / "output"
+    if not output_dir.exists():
+        return 1
+    existing = [int(p.stem) for p in output_dir.glob("*.mp4") if p.stem.isdigit()]
+    return max(existing, default=0) + 1
+
+
 def run(project_name: str | None = None) -> Path:
-    project_name = project_name or datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+    project_name = project_name or str(_next_output_number())
     project_dir = ROOT / "projects" / project_name
     project_dir.mkdir(parents=True, exist_ok=True)
 
